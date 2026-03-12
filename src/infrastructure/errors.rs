@@ -26,7 +26,7 @@ impl IntoResponse for AppError {
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             AppError::Validation(errors) => {
                 let mut msgs = Vec::new();
-                for (field, _err) in errors.errors() {
+                for field in errors.errors().keys() {
                     msgs.push(format!("{}: validation failed", field));
                 }
                 (StatusCode::BAD_REQUEST, msgs.join(", "))

@@ -12,7 +12,7 @@ pub fn get_db_path() -> PathBuf {
 pub fn establish_connection() -> Connection {
     let db_path = get_db_path();
     let conn = Connection::open(&db_path)
-        .expect(&format!("Failed to connect to database at {:?}", db_path));
+        .unwrap_or_else(|_| panic!("Failed to connect to database at {:?}", db_path));
 
     run_migrations(&conn);
 

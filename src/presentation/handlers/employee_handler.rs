@@ -9,7 +9,7 @@ use validator::Validate;
 use crate::application::dto::{CreateEmployeeDto, EmployeeResponse, UpdateEmployeeDto};
 use crate::infrastructure::AppError;
 use crate::presentation::response::ApiResponse;
-use crate::presentation::routes::routes::AppState;
+use crate::presentation::routes::AppState;
 
 #[derive(serde::Deserialize)]
 pub struct ListEmployeesQuery {
@@ -44,7 +44,10 @@ impl EmployeeHandler {
         dto.validate()?;
         let service = state.employee_service.lock().unwrap();
         let employee = service.create(dto)?;
-        Ok(Json(ApiResponse::with_message(employee, "Employee created successfully")))
+        Ok(Json(ApiResponse::with_message(
+            employee,
+            "Employee created successfully",
+        )))
     }
 
     pub async fn update(
@@ -55,7 +58,10 @@ impl EmployeeHandler {
         dto.validate()?;
         let service = state.employee_service.lock().unwrap();
         let employee = service.update(&uuid, dto)?;
-        Ok(Json(ApiResponse::with_message(employee, "Employee updated successfully")))
+        Ok(Json(ApiResponse::with_message(
+            employee,
+            "Employee updated successfully",
+        )))
     }
 
     pub async fn delete(
@@ -64,6 +70,9 @@ impl EmployeeHandler {
     ) -> Result<Json<ApiResponse<()>>, AppError> {
         let service = state.employee_service.lock().unwrap();
         service.delete(&uuid)?;
-        Ok(Json(ApiResponse::with_message((), "Employee deleted successfully")))
+        Ok(Json(ApiResponse::with_message(
+            (),
+            "Employee deleted successfully",
+        )))
     }
 }

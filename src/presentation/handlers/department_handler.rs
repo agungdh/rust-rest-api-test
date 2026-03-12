@@ -9,7 +9,7 @@ use validator::Validate;
 use crate::application::dto::{CreateDepartmentDto, DepartmentResponse, UpdateDepartmentDto};
 use crate::infrastructure::AppError;
 use crate::presentation::response::ApiResponse;
-use crate::presentation::routes::routes::AppState;
+use crate::presentation::routes::AppState;
 
 pub struct DepartmentHandler;
 
@@ -38,7 +38,10 @@ impl DepartmentHandler {
         dto.validate()?;
         let service = state.department_service.lock().unwrap();
         let department = service.create(dto)?;
-        Ok(Json(ApiResponse::with_message(department, "Department created successfully")))
+        Ok(Json(ApiResponse::with_message(
+            department,
+            "Department created successfully",
+        )))
     }
 
     pub async fn update(
@@ -49,7 +52,10 @@ impl DepartmentHandler {
         dto.validate()?;
         let service = state.department_service.lock().unwrap();
         let department = service.update(&uuid, dto)?;
-        Ok(Json(ApiResponse::with_message(department, "Department updated successfully")))
+        Ok(Json(ApiResponse::with_message(
+            department,
+            "Department updated successfully",
+        )))
     }
 
     pub async fn delete(
@@ -58,6 +64,9 @@ impl DepartmentHandler {
     ) -> Result<Json<ApiResponse<()>>, AppError> {
         let service = state.department_service.lock().unwrap();
         service.delete(&uuid)?;
-        Ok(Json(ApiResponse::with_message((), "Department deleted successfully")))
+        Ok(Json(ApiResponse::with_message(
+            (),
+            "Department deleted successfully",
+        )))
     }
 }
