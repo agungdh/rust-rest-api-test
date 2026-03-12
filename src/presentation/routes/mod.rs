@@ -1,3 +1,3 @@
-pub mod employee_routes;
+pub mod routes;
 
-pub use employee_routes::employee_routes;
+pub use routes::create_router;

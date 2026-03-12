@@ -1,61 +1,69 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
-use uuid::Uuid;
 use validator::Validate;
 
-use crate::application::dto::{CreateEmployeeDto, UpdateEmployeeDto};
-use crate::application::services::EmployeeServiceTrait;
-use crate::domain::Employee;
+use crate::application::dto::{CreateEmployeeDto, EmployeeResponse, UpdateEmployeeDto};
 use crate::infrastructure::AppError;
 use crate::presentation::response::ApiResponse;
+use crate::presentation::routes::routes::AppState;
 
-#[derive(Clone)]
+#[derive(serde::Deserialize)]
+pub struct ListEmployeesQuery {
+    pub department_uuid: Option<String>,
+}
+
 pub struct EmployeeHandler;
 
 impl EmployeeHandler {
     pub async fn get_all(
-        State(service): State<Arc<dyn EmployeeServiceTrait>>,
-    ) -> Result<Json<Vec<Employee>>, AppError> {
-        let employees = service.get_all();
+        State(state): State<Arc<AppState>>,
+        Query(query): Query<ListEmployeesQuery>,
+    ) -> Result<Json<Vec<EmployeeResponse>>, AppError> {
+        let service = state.employee_service.lock().unwrap();
+        let employees = service.get_all(query.department_uuid.as_deref())?;
         Ok(Json(employees))
     }
 
-    pub async fn get_by_id(
-        State(service): State<Arc<dyn EmployeeServiceTrait>>,
-        Path(id): Path<Uuid>,
-    ) -> Result<Json<ApiResponse<Employee>>, AppError> {
-        let employee = service.get_by_id(id)?;
+    pub async fn get_by_uuid(
+        State(state): State<Arc<AppState>>,
+        Path(uuid): Path<String>,
+    ) -> Result<Json<ApiResponse<EmployeeResponse>>, AppError> {
+        let service = state.employee_service.lock().unwrap();
+        let employee = service.get_by_uuid(&uuid)?;
         Ok(Json(ApiResponse::ok(employee)))
     }
 
     pub async fn create(
-        State(service): State<Arc<dyn EmployeeServiceTrait>>,
+        State(state): State<Arc<AppState>>,
         Json(dto): Json<CreateEmployeeDto>,
-    ) -> Result<Json<ApiResponse<Employee>>, AppError> {
+    ) -> Result<Json<ApiResponse<EmployeeResponse>>, AppError> {
         dto.validate()?;
-        let employee = service.create(dto);
+        let service = state.employee_service.lock().unwrap();
+        let employee = service.create(dto)?;
         Ok(Json(ApiResponse::with_message(employee, "Employee created successfully")))
     }
 
     pub async fn update(
-        State(service): State<Arc<dyn EmployeeServiceTrait>>,
-        Path(id): Path<Uuid>,
+        State(state): State<Arc<AppState>>,
+        Path(uuid): Path<String>,
         Json(dto): Json<UpdateEmployeeDto>,
-    ) -> Result<Json<ApiResponse<Employee>>, AppError> {
+    ) -> Result<Json<ApiResponse<EmployeeResponse>>, AppError> {
         dto.validate()?;
-        let employee = service.update(id, dto)?;
+        let service = state.employee_service.lock().unwrap();
+        let employee = service.update(&uuid, dto)?;
         Ok(Json(ApiResponse::with_message(employee, "Employee updated successfully")))
     }
 
     pub async fn delete(
-        State(service): State<Arc<dyn EmployeeServiceTrait>>,
-        Path(id): Path<Uuid>,
+        State(state): State<Arc<AppState>>,
+        Path(uuid): Path<String>,
     ) -> Result<Json<ApiResponse<()>>, AppError> {
-        service.delete(id)?;
+        let service = state.employee_service.lock().unwrap();
+        service.delete(&uuid)?;
         Ok(Json(ApiResponse::with_message((), "Employee deleted successfully")))
     }
 }

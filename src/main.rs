@@ -4,14 +4,14 @@ mod domain;
 mod infrastructure;
 mod presentation;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tracing_subscriber::EnvFilter;
 
-use application::services::{EmployeeService, EmployeeServiceTrait};
+use application::services::{DepartmentService, EmployeeService};
 use config::AppConfig;
-use infrastructure::InMemoryEmployeeRepository;
-use presentation::employee_routes;
+use infrastructure::establish_connection;
+use presentation::routes::{create_router, routes::AppState};
 
 #[tokio::main]
 async fn main() {
@@ -21,10 +21,18 @@ async fn main() {
 
     let config = AppConfig::load().unwrap_or_default();
 
-    let repository = Arc::new(InMemoryEmployeeRepository::new());
-    let service = Arc::new(EmployeeService::new(repository)) as Arc<dyn EmployeeServiceTrait>;
+    let conn1 = establish_connection();
+    let conn2 = establish_connection();
+    
+    let employee_service = Arc::new(Mutex::new(EmployeeService::new(conn1)));
+    let department_service = Arc::new(Mutex::new(DepartmentService::new(conn2)));
 
-    let app = employee_routes().with_state(service);
+    let state = Arc::new(AppState {
+        employee_service,
+        department_service,
+    });
+
+    let app = create_router(state);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
