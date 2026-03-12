@@ -6,7 +6,6 @@ mod presentation;
 
 use std::sync::Arc;
 
-use axum::Router;
 use tracing_subscriber::EnvFilter;
 
 use application::services::{EmployeeService, EmployeeServiceTrait};

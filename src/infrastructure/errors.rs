@@ -8,6 +8,7 @@ use thiserror::Error;
 use validator::ValidationErrors;
 
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum AppError {
     #[error("Employee not found: {0}")]
     NotFound(String),
@@ -25,7 +26,7 @@ impl IntoResponse for AppError {
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             AppError::Validation(errors) => {
                 let mut msgs = Vec::new();
-                for (field, err) in errors.errors() {
+                for (field, _err) in errors.errors() {
                     msgs.push(format!("{}: validation failed", field));
                 }
                 (StatusCode::BAD_REQUEST, msgs.join(", "))
