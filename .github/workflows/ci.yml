@@ -20,10 +20,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --release --verbose --target x86_64-pc-windows-gnu
+        run: RUSTFLAGS="-C target-cpu=x86-64-v2" cargo build --release
 
       - name: Run tests
-        run: cargo test --release --verbose
+        run: RUSTFLAGS="-C target-cpu=x86-64-v2" cargo test --release
 
       - name: Check formatting
         run: cargo fmt --check
