@@ -15,14 +15,12 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86-v2
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --release --verbose
+        run: cargo build --release --verbose --target x86_64-pc-windows-gnu
 
       - name: Run tests
         run: cargo test --release --verbose
