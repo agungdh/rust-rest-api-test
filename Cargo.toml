@@ -21,3 +21,15 @@ diesel = { version = "2.1", features = ["sqlite", "chrono", "uuid", "r2d2"] }
 diesel_migrations = "2.1"
 
 [dev-dependencies]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = "symbols"
+panic = "unwind"
+incremental = false
+
+[profile.dev]
+opt-level = 0
+debug = true
