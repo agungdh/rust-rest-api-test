@@ -1,14 +1,18 @@
+use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Queryable, Selectable)]
+#[diesel(table_name = crate::domain::entities::schema::employees)]
+#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Employee {
-    pub id: i64,
+    pub id: i32,
     pub uuid: String,
     pub name: String,
     pub email: String,
     pub position: String,
-    pub salary: i64,
+    pub salary: i32,
+    pub department_id: i32,
     pub department_uuid: String,
     pub created_at: String,
     pub updated_at: Option<String>,
@@ -20,6 +24,7 @@ impl Employee {
         email: String,
         position: String,
         salary: i64,
+        department_id: i32,
         department_uuid: String,
     ) -> Self {
         let now = chrono::Utc::now().to_rfc3339();
@@ -29,7 +34,8 @@ impl Employee {
             name,
             email,
             position,
-            salary,
+            salary: salary as i32,
+            department_id,
             department_uuid,
             created_at: now,
             updated_at: None,

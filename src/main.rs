@@ -23,11 +23,10 @@ async fn main() {
 
     let config = AppConfig::load().unwrap_or_default();
 
-    let conn1 = establish_connection();
-    let conn2 = establish_connection();
+    let pool = establish_connection();
 
-    let employee_service = Arc::new(Mutex::new(EmployeeService::new(conn1)));
-    let department_service = Arc::new(Mutex::new(DepartmentService::new(conn2)));
+    let employee_service = Arc::new(Mutex::new(EmployeeService::new(pool.clone())));
+    let department_service = Arc::new(Mutex::new(DepartmentService::new(pool)));
 
     let state = Arc::new(AppState {
         employee_service,

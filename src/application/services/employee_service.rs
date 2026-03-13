@@ -1,17 +1,19 @@
-use rusqlite::Connection;
+use diesel::r2d2::{ConnectionManager, Pool};
 
 use crate::application::dto::{CreateEmployeeDto, EmployeeResponse, UpdateEmployeeDto};
 use crate::domain::entities::Employee;
 use crate::infrastructure::{AppError, EmployeeRepository};
+
+pub type DbPool = Pool<ConnectionManager<diesel::sqlite::SqliteConnection>>;
 
 pub struct EmployeeService {
     repository: EmployeeRepository,
 }
 
 impl EmployeeService {
-    pub fn new(conn: Connection) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self {
-            repository: EmployeeRepository::new(conn),
+            repository: EmployeeRepository::new(pool),
         }
     }
 
@@ -27,7 +29,8 @@ impl EmployeeService {
                 name: e.name,
                 email: e.email,
                 position: e.position,
-                salary: e.salary,
+                salary: e.salary as i64,
+                department_id: e.department_id,
                 department_uuid: e.department_uuid,
             })
             .collect())
@@ -44,7 +47,8 @@ impl EmployeeService {
             name: employee.name,
             email: employee.email,
             position: employee.position,
-            salary: employee.salary,
+            salary: employee.salary as i64,
+            department_id: employee.department_id,
             department_uuid: employee.department_uuid,
         })
     }
@@ -55,6 +59,7 @@ impl EmployeeService {
             dto.email,
             dto.position,
             dto.salary,
+            dto.department_id,
             dto.department_uuid,
         );
         let saved = self.repository.save(&employee)?;
@@ -64,7 +69,8 @@ impl EmployeeService {
             name: saved.name,
             email: saved.email,
             position: saved.position,
-            salary: saved.salary,
+            salary: saved.salary as i64,
+            department_id: saved.department_id,
             department_uuid: saved.department_uuid,
         })
     }
@@ -76,6 +82,7 @@ impl EmployeeService {
             dto.email.as_deref(),
             dto.position.as_deref(),
             dto.salary,
+            dto.department_id,
             dto.department_uuid.as_deref(),
         )?;
 
@@ -84,7 +91,8 @@ impl EmployeeService {
             name: updated.name,
             email: updated.email,
             position: updated.position,
-            salary: updated.salary,
+            salary: updated.salary as i64,
+            department_id: updated.department_id,
             department_uuid: updated.department_uuid,
         })
     }

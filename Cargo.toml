@@ -17,5 +17,7 @@ tower = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
+diesel = { version = "2.1", features = ["sqlite", "chrono", "uuid", "r2d2"] }
+diesel_migrations = "2.1"
 
 [dev-dependencies]

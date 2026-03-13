@@ -1,111 +1,55 @@
-use rusqlite::{Connection, OptionalExtension};
+use diesel::prelude::*;
+use diesel::r2d2::{ConnectionManager, Pool};
 
 use crate::domain::entities::Employee;
 use crate::infrastructure::AppError;
 
+pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
+
 pub struct EmployeeRepository {
-    conn: Connection,
+    pool: DbPool,
 }
 
 impl EmployeeRepository {
-    pub fn new(conn: Connection) -> Self {
-        Self { conn }
+    pub fn new(pool: DbPool) -> Self {
+        Self { pool }
     }
 
-    pub fn find_all(&self, department_uuid: Option<&str>) -> Result<Vec<Employee>, AppError> {
-        let query = if department_uuid.is_some() {
-            "SELECT e.id, e.uuid, e.name, e.email, e.position, e.salary, d.uuid, e.created_at, e.updated_at 
-             FROM employees e 
-             JOIN departments d ON e.department_id = d.id 
-             WHERE d.uuid = ? 
-             ORDER BY e.created_at DESC"
+    pub fn find_all(&self, dept_uuid: Option<&str>) -> Result<Vec<Employee>, AppError> {
+        let conn = &mut self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        use crate::domain::entities::schema::employees::dsl::*;
+
+        let results = if let Some(filter_dept_uuid) = dept_uuid {
+            employees
+                .filter(department_uuid.eq(filter_dept_uuid))
+                .order(created_at.desc())
+                .load(conn)
+                .map_err(|e| AppError::Internal(e.to_string()))?
         } else {
-            "SELECT e.id, e.uuid, e.name, e.email, e.position, e.salary, d.uuid, e.created_at, e.updated_at 
-             FROM employees e 
-             JOIN departments d ON e.department_id = d.id 
-             ORDER BY e.created_at DESC"
+            employees
+                .order(created_at.desc())
+                .load(conn)
+                .map_err(|e| AppError::Internal(e.to_string()))?
         };
 
-        let mut stmt = self
-            .conn
-            .prepare(query)
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        let employees = if let Some(dept_uuid) = department_uuid {
-            stmt.query_map([dept_uuid], |row| {
-                Ok(Employee {
-                    id: row.get(0)?,
-                    uuid: row.get(1)?,
-                    name: row.get(2)?,
-                    email: row.get(3)?,
-                    position: row.get(4)?,
-                    salary: row.get(5)?,
-                    department_uuid: row.get(6)?,
-                    created_at: row.get(7)?,
-                    updated_at: row.get(8)?,
-                })
-            })
-            .map_err(|e| AppError::Internal(e.to_string()))?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| AppError::Internal(e.to_string()))?
-        } else {
-            stmt.query_map([], |row| {
-                Ok(Employee {
-                    id: row.get(0)?,
-                    uuid: row.get(1)?,
-                    name: row.get(2)?,
-                    email: row.get(3)?,
-                    position: row.get(4)?,
-                    salary: row.get(5)?,
-                    department_uuid: row.get(6)?,
-                    created_at: row.get(7)?,
-                    updated_at: row.get(8)?,
-                })
-            })
-            .map_err(|e| AppError::Internal(e.to_string()))?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| AppError::Internal(e.to_string()))?
-        };
-
-        Ok(employees)
+        Ok(results)
     }
 
-    pub fn find_by_uuid(&self, uuid: &str) -> Result<Option<Employee>, AppError> {
-        let mut stmt = self.conn.prepare(
-            "SELECT e.id, e.uuid, e.name, e.email, e.position, e.salary, d.uuid, e.created_at, e.updated_at 
-             FROM employees e 
-             JOIN departments d ON e.department_id = d.id 
-             WHERE e.uuid = ?"
-        ).map_err(|e| AppError::Internal(e.to_string()))?;
-
-        let result = stmt
-            .query_row([uuid], |row| {
-                Ok(Employee {
-                    id: row.get(0)?,
-                    uuid: row.get(1)?,
-                    name: row.get(2)?,
-                    email: row.get(3)?,
-                    position: row.get(4)?,
-                    salary: row.get(5)?,
-                    department_uuid: row.get(6)?,
-                    created_at: row.get(7)?,
-                    updated_at: row.get(8)?,
-                })
-            })
-            .optional()
+    pub fn find_by_uuid(&self, emp_uuid: &str) -> Result<Option<Employee>, AppError> {
+        let conn = &mut self
+            .pool
+            .get()
             .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        Ok(result)
-    }
+        use crate::domain::entities::schema::employees::dsl::*;
 
-    pub fn get_department_id_by_uuid(&self, uuid: &str) -> Result<Option<i64>, AppError> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id FROM departments WHERE uuid = ?")
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-
-        let result = stmt
-            .query_row([uuid], |row| row.get(0))
+        let result = employees
+            .filter(uuid.eq(emp_uuid))
+            .first(conn)
             .optional()
             .map_err(|e| AppError::Internal(e.to_string()))?;
 
@@ -113,84 +57,121 @@ impl EmployeeRepository {
     }
 
     pub fn save(&self, employee: &Employee) -> Result<Employee, AppError> {
-        let department_id = self
-            .get_department_id_by_uuid(&employee.department_uuid)?
-            .ok_or_else(|| {
-                AppError::NotFound(format!(
-                    "Department with uuid {} not found",
-                    employee.department_uuid
-                ))
-            })?;
+        let conn = &mut self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        self.conn.execute(
-            "INSERT INTO employees (uuid, name, email, position, salary, department_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (&employee.uuid, &employee.name, &employee.email, &employee.position, &employee.salary, department_id, &employee.created_at, &employee.updated_at),
-        ).map_err(|e| AppError::Internal(e.to_string()))?;
+        use crate::domain::entities::schema::employees::dsl::*;
 
-        let id = self.conn.last_insert_rowid();
-        let mut emp = employee.clone();
-        emp.id = id;
-        Ok(emp)
+        let new_employee = NewEmployee {
+            uuid: &employee.uuid,
+            name: &employee.name,
+            email: &employee.email,
+            position: &employee.position,
+            salary: employee.salary,
+            department_id: employee.department_id,
+            department_uuid: &employee.department_uuid,
+            created_at: &employee.created_at,
+            updated_at: employee.updated_at.as_deref(),
+        };
+
+        diesel::insert_into(employees)
+            .values(&new_employee)
+            .execute(conn)
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        Ok(employee.clone())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update(
         &self,
-        uuid: &str,
-        name: Option<&str>,
-        email: Option<&str>,
-        position: Option<&str>,
-        salary: Option<i64>,
-        department_uuid: Option<&str>,
+        emp_uuid: &str,
+        emp_name: Option<&str>,
+        emp_email: Option<&str>,
+        emp_position: Option<&str>,
+        emp_salary: Option<i64>,
+        emp_dept_id: Option<i32>,
+        emp_dept_uuid: Option<&str>,
     ) -> Result<Employee, AppError> {
-        let existing = self
-            .find_by_uuid(uuid)?
-            .ok_or_else(|| AppError::NotFound(format!("Employee with uuid {} not found", uuid)))?;
+        let conn = &mut self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        let new_name = name.unwrap_or(&existing.name);
-        let new_email = email.unwrap_or(&existing.email);
-        let new_position = position.unwrap_or(&existing.position);
-        let new_salary = salary.unwrap_or(existing.salary);
+        use crate::domain::entities::schema::employees::dsl::*;
 
-        let new_department_id = if let Some(dept_uuid) = department_uuid {
-            self.get_department_id_by_uuid(dept_uuid)?.ok_or_else(|| {
-                AppError::NotFound(format!("Department with uuid {} not found", dept_uuid))
-            })?
-        } else {
-            self.get_department_id_by_uuid(&existing.department_uuid)?
-                .unwrap()
-        };
+        let existing = self.find_by_uuid(emp_uuid)?.ok_or_else(|| {
+            AppError::NotFound(format!("Employee with uuid {} not found", emp_uuid))
+        })?;
+
+        let new_name = emp_name.unwrap_or(&existing.name);
+        let new_email = emp_email.unwrap_or(&existing.email);
+        let new_position = emp_position.unwrap_or(&existing.position);
+        let new_salary = emp_salary.unwrap_or(existing.salary as i64);
+        let new_dept_id = emp_dept_id.unwrap_or(existing.department_id);
+        let new_dept_uuid = emp_dept_uuid.unwrap_or(&existing.department_uuid);
 
         let now = chrono::Utc::now().to_rfc3339();
 
-        let rows_updated = self.conn.execute(
-            "UPDATE employees SET name = ?, email = ?, position = ?, salary = ?, department_id = ?, updated_at = ? WHERE uuid = ?",
-            (new_name, new_email, new_position, new_salary, new_department_id, &now, uuid),
-        ).map_err(|e| AppError::Internal(e.to_string()))?;
+        let rows_updated = diesel::update(employees.filter(uuid.eq(emp_uuid)))
+            .set((
+                name.eq(new_name),
+                email.eq(new_email),
+                position.eq(new_position),
+                salary.eq(new_salary as i32),
+                department_id.eq(new_dept_id),
+                department_uuid.eq(new_dept_uuid),
+                updated_at.eq(Some(now)),
+            ))
+            .execute(conn)
+            .map_err(|e| AppError::Internal(e.to_string()))?;
 
         if rows_updated == 0 {
             return Err(AppError::NotFound(format!(
                 "Employee with uuid {} not found",
-                uuid
+                emp_uuid
             )));
         }
 
-        self.find_by_uuid(uuid)?
-            .ok_or_else(|| AppError::NotFound(format!("Employee with uuid {} not found", uuid)))
+        self.find_by_uuid(emp_uuid)?
+            .ok_or_else(|| AppError::NotFound(format!("Employee with uuid {} not found", emp_uuid)))
     }
 
-    pub fn delete(&self, uuid: &str) -> Result<(), AppError> {
-        let rows_deleted = self
-            .conn
-            .execute("DELETE FROM employees WHERE uuid = ?", [uuid])
+    pub fn delete(&self, emp_uuid: &str) -> Result<(), AppError> {
+        let conn = &mut self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        use crate::domain::entities::schema::employees::dsl::*;
+
+        let rows_deleted = diesel::delete(employees.filter(uuid.eq(emp_uuid)))
+            .execute(conn)
             .map_err(|e| AppError::Internal(e.to_string()))?;
 
         if rows_deleted == 0 {
             return Err(AppError::NotFound(format!(
                 "Employee with uuid {} not found",
-                uuid
+                emp_uuid
             )));
         }
 
         Ok(())
     }
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = crate::domain::entities::schema::employees)]
+struct NewEmployee<'a> {
+    uuid: &'a str,
+    name: &'a str,
+    email: &'a str,
+    position: &'a str,
+    salary: i32,
+    department_id: i32,
+    department_uuid: &'a str,
+    created_at: &'a str,
+    updated_at: Option<&'a str>,
 }

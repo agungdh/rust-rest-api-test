@@ -19,6 +19,9 @@ pub struct CreateEmployeeDto {
     #[validate(range(min = 1, message = "Salary must be greater than 0"))]
     pub salary: i64,
 
+    #[validate(range(min = 1, message = "Department ID is required"))]
+    pub department_id: i32,
+
     #[validate(length(min = 1, message = "Department UUID is required"))]
     pub department_uuid: String,
 }
@@ -41,6 +44,9 @@ pub struct UpdateEmployeeDto {
     #[validate(range(min = 1, message = "Salary must be greater than 0"))]
     pub salary: Option<i64>,
 
+    #[validate(range(min = 1, message = "Department ID is required"))]
+    pub department_id: Option<i32>,
+
     #[validate(length(min = 1, message = "Department UUID is required"))]
     pub department_uuid: Option<String>,
 }
@@ -52,5 +58,6 @@ pub struct EmployeeResponse {
     pub email: String,
     pub position: String,
     pub salary: i64,
+    pub department_id: i32,
     pub department_uuid: String,
 }

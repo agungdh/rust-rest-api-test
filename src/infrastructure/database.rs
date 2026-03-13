@@ -1,48 +1,25 @@
-use rusqlite::Connection;
+use diesel::r2d2::{ConnectionManager, Pool};
+use diesel::sqlite::SqliteConnection;
 use std::path::PathBuf;
+
+pub type DbPool = Pool<ConnectionManager<SqliteConnection>>;
 
 pub fn get_db_path() -> PathBuf {
     let mut path = std::env::current_dir().unwrap();
     path.push("data");
     std::fs::create_dir_all(&path).ok();
-    path.push("app.db");
+    path.push("employees.db");
     path
 }
 
-pub fn establish_connection() -> Connection {
+pub fn establish_connection() -> DbPool {
     let db_path = get_db_path();
-    let conn = Connection::open(&db_path)
-        .unwrap_or_else(|_| panic!("Failed to connect to database at {:?}", db_path));
+    let db_url = db_path.to_string_lossy().to_string();
 
-    run_migrations(&conn);
+    let manager = ConnectionManager::<SqliteConnection>::new(&db_url);
+    let pool = Pool::builder()
+        .build(manager)
+        .unwrap_or_else(|_| panic!("Failed to create pool for database at {:?}", db_path));
 
-    conn
-}
-
-pub fn run_migrations(conn: &Connection) {
-    conn.execute_batch(
-        "
-        CREATE TABLE IF NOT EXISTS departments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            uuid TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT
-        );
-        
-        CREATE TABLE IF NOT EXISTS employees (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            uuid TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            position TEXT NOT NULL,
-            salary INTEGER NOT NULL,
-            department_id INTEGER NOT NULL,
-            created_at TEXT NOT NULL,
-            updated_at TEXT,
-            FOREIGN KEY (department_id) REFERENCES departments(id)
-        );
-        ",
-    )
-    .expect("Failed to run migrations");
+    pool
 }

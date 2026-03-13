@@ -1,17 +1,19 @@
-use rusqlite::Connection;
+use diesel::r2d2::{ConnectionManager, Pool};
 
 use crate::application::dto::{CreateDepartmentDto, DepartmentResponse, UpdateDepartmentDto};
 use crate::domain::entities::Department;
 use crate::infrastructure::{AppError, DepartmentRepository};
+
+pub type DbPool = Pool<ConnectionManager<diesel::sqlite::SqliteConnection>>;
 
 pub struct DepartmentService {
     repository: DepartmentRepository,
 }
 
 impl DepartmentService {
-    pub fn new(conn: Connection) -> Self {
+    pub fn new(pool: DbPool) -> Self {
         Self {
-            repository: DepartmentRepository::new(conn),
+            repository: DepartmentRepository::new(pool),
         }
     }
 
